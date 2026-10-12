@@ -1,0 +1,97 @@
+# Waypoint QA release checklist
+
+This checklist distinguishes automated coverage from checks that require real Chrome and a deployed dashboard. Do not describe a release as production ready solely because its static UI loads or Node tests pass.
+
+## Automated checks
+
+- [x] All JavaScript files pass syntax checks.
+- [x] Manifest uses Manifest V3, an exact trusted dashboard origin, and only documented permissions.
+- [x] Import contract preserves observed versus review findings, check status, telemetry, and screenshot metadata.
+- [x] Untrusted imports cannot introduce executable markup or unbounded storage growth.
+- [x] Chrome mocks verify external sender rejection and capability checks.
+- [x] Chrome mocks verify explicit tab authorization, origin change, cancellation, and stale-session errors.
+- [x] Chrome mocks verify that audit never captures a screenshot implicitly.
+- [x] Chrome mocks verify replay limits, allowed step types, and sensitive action rejection.
+- [x] DOM engine tests exercise safe click results and assertions on a controlled mock document. Real browser fixture acceptance remains separate.
+
+## Controlled fixture acceptance procedure
+
+Use an app origin distinct from the dashboard. The hosted dashboard's `/fixture.html` is a preview only: the extension intentionally refuses to authorize the dashboard origin as an app. From a checked-out source folder, run `python3 -m http.server 8081 --directory dist`, then open `http://127.0.0.1:8081/fixture.html` in desktop Chrome. Keep the dashboard open at its exact trusted HTTPS origin.
+
+1. Load the unpacked extension, select the local fixture tab, and authorize inspection, interaction, and screenshots.
+2. Connect the hosted dashboard with the extension ID. Run an audit and verify the known overflow, unlabeled control, broken image, and touch-target suggestion against the actual fixture.
+3. Start recording in the dashboard. In the fixture tab, click **Open details**, then **Complete demo step**. Stop recording and save the journey.
+4. Reload the fixture to its starting state. Replay the saved journey and separately assert **Demo step complete**. Verify every step result and the visible fixture state.
+5. Create a plain-language journey with `Click "Open details"`, `Click "Complete demo step"`, and `Check "Demo step complete" is visible`; reload the fixture and replay it.
+6. Enable **Scroll in live view** and wheel over the fixture’s Results list. Confirm the inner list moves and Result row 30 becomes visible. Repeat over the surrounding document and at different display scales.
+7. Start a long missing-text assertion and press **Stop session** while it is running. Confirm the UI accepts Stop immediately and the Chrome debugger detaches.
+
+Record these outcomes before marking the Chrome checks below complete. Passing a mock document test does not complete this procedure.
+
+## Real Chrome acceptance gate
+
+These checks require a human or an authorized browser integration environment. Mark a check completed only after recording the Chrome version, extension version, test app version, and result.
+
+- [ ] Install the unpacked extension and load the deployed dashboard from its exact trusted origin.
+- [ ] Connect with the copied extension ID; verify wrong ID, disabled extension, and unauthorized tab errors are useful.
+- [ ] Confirm that an unrelated origin cannot connect and that other tabs are never inspected or captured.
+- [ ] Authorize a dedicated staging tab and each capability independently. Confirm toggles enforce their advertised boundary.
+- [ ] Sign in manually using a disposable test account; verify recording and reports contain no password or entered value.
+- [ ] Audit a page with known accessibility and layout defects; inspect findings and check failures against actual elements.
+- [ ] Capture only the authorized app tab. Verify desktop and mobile screenshots and coordinate mapping at multiple display scale factors.
+- [ ] Record, stop, save, and replay a safe click journey. Verify missing targets and assertions fail clearly.
+- [ ] Attempt form submit, Enter, payment, delete, send, and sign-out steps. Verify controls stop before the action.
+- [ ] Navigate the app to another origin during a command, recording, and replay. Confirm session ends safely.
+- [ ] Press Stop mid-replay, close the dashboard, close the app tab, and restart the worker. Confirm no later queued interaction occurs.
+- [ ] Open two dashboard tabs and attempt simultaneous control. Confirm ownership is predictable and no race changes the app.
+- [ ] Trigger console and network failures. Verify telemetry attribution and sanitization of query/hash values.
+- [ ] Import/export reports, inspect evidence, verify duplicate handling, and test storage quota exhaustion.
+- [ ] Test keyboard-only operation and zoom on the dashboard; verify mobile layout remains usable.
+- [ ] Capture Recreate observations on the fixture at desktop and mobile viewports; compare names, bounds and design tokens to the visible document. Verify hidden/editable content and page URL paths are absent.
+- [ ] Switch or stop the authorized session during a Recreate capture; verify no stale evidence is added. Import/export a collection and confirm supplied observations remain labeled as imported.
+- [ ] Generate a recreation brief and inspect its evidence references, unknown behavior and unexecuted acceptance checks. Copy it to a supported MCP host and verify the agent uses real authorized observations.
+
+## Optional REA acceptance gate
+
+The REA connector has protocol and lifecycle tests against a local process fixture. These do not establish compatibility with the separately installed upstream runtime.
+
+- [ ] Install the documented pinned REA package on a supported Node version and configure a disposable local JavaScript artifact root.
+- [ ] Verify the actual upstream identity, live tool catalog and static-analysis result on a known fixture; compare cited modules/imports with its source.
+- [ ] Verify invalid paths, outside-root artifacts, nested symlinks, missing runtime, incompatible versions, interrupted processes and deadlines fail usefully.
+- [ ] Cancel an active local analysis with the documented stop tool and confirm the process exits and no later result is reported as successful.
+- [ ] Confirm browser session consent remains enforced independently and that static analysis does not launch or execute the target app.
+
+## Native Appium acceptance gate
+
+The native adapter has automated tests against a loopback mock WebDriver server. Real Android and iOS acceptance has not been performed.
+
+- [ ] Attach a disposable test-app session on an actual Android emulator/device and an iOS simulator/device using the documented Appium setup.
+- [ ] Confirm configured app identity, platform, observed geometry, exact-label clicks, visible assertions, scrolling, screenshot format, and canonical report import in the dashboard.
+- [ ] Confirm editable field text/value/name and secure subtrees are omitted from observations; inspect real driver XML differences without sharing private input values.
+- [ ] Confirm password, OTP, payment, sign-out, send, and destructive actions are blocked, including neutral continuation on a secure screen.
+- [ ] Confirm an Android control belonging to another app package is blocked even when the expected app remains represented in the UI tree.
+- [ ] Record the iOS foreground-app identity limitation: session capabilities alone do not establish which app is currently foregrounded.
+- [ ] Stop during an active action and confirm no subsequent mutation is submitted. An action already submitted to the driver may finish; stop preserves the Appium session.
+- [ ] Reproduce driver errors, timeouts, duplicate labels, moved targets, and unknown app identity, and confirm reports describe actual coverage without device certification.
+
+## Product release gate
+
+- [ ] Publish a privacy notice accurately describing local data, screenshots, retention, and third-party hosting.
+- [ ] Establish a security-report contact and a support path before inviting external customers.
+- [ ] Document supported Chrome versions, browser-only mobile emulation, and native existing-session scope and unsupported hybrid WebView / cross-origin frame behavior.
+- [ ] Complete a Chrome Web Store policy and permission review if distributing through the store.
+- [ ] Have several independent developers test their own staging apps and record reproducible success and failure cases.
+- [ ] Resolve critical bugs before charging users or claiming universal app compatibility.
+
+## Account and billing acceptance gate
+
+- [ ] Verify real production HTTPS cookies, domain routing and same-origin browser requests.
+- [ ] Register, sign out, sign in, recover once, confirm old sessions are revoked, and delete a disposable account.
+- [ ] Save, load, paginate and delete report/journey evidence; verify repeat-save identity and no screenshot upload.
+- [ ] Confirm owned records and sessions survive an actual Render restart/redeploy and a tested database backup/restore.
+- [ ] Run actual Stripe sandbox Checkout, webhook activation, renewal, cancellation, expired entitlement, failure/recovery and pending-checkout account deletion.
+- [ ] Verify price and displayed account-wide quotas; keep live charges disabled until these gates pass.
+
+## Current verification status
+
+On 2026-10-11, the complete automated suite passed 282 tests. The final packaging privacy regression also passed after adding secret-file symlink exclusion. Syntax/static-reference checks passed 55 JavaScript sources. A production-mode HTTP rehearsal built a fresh source copy, pinned its companion to a simulated Render origin, started the actual server entrypoint, and verified health, domain rejection, dashboard/downloads, anonymous session and secure-cookie account registration. The rehearsal created no public resource and made no provider calls. Automated tests use real loopback HTTP/stdio, temporary SQLite, controlled provider processes and mock Chrome/Appium/Stripe APIs. They establish code behavior, not real browser rendering, installed REA/provider compatibility, production TLS, actual Stripe acceptance, willingness to pay or competitive superiority. Real Chrome acceptance, actual upstream REA execution and Android/iOS device acceptance have not been performed in this environment. Hush's authenticated flows have not been tested. There is no confirmed live deployment.
